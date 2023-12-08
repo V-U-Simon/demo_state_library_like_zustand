@@ -1,31 +1,53 @@
-// Share Module State Between Components in React Similar to Zustand 3
-import { useState } from "react";
+// Share Module State Between Components in React Similar to Zustand 4
+import { useEffect, useState } from "react";
 
-// помещаем модульное состояние в замыкание
 const createStore = (initialState) => {
   let state = initialState;
   const getState = () => state;
   const setState = (nextState) => {
+    // обновляем текущее состояние модуля
     state = nextState;
+    // обновляем локальные состояния всех инициализированных компонентов
+    // поскольку listeners содержит список callback'ов
+    // в качестве listener вызываем callback выполняющий setState(store.getState()) локальное состояние приводится к состоянию модуля
+    listeners.forEach((listener) => {
+      listener();
+    });
   };
 
-  return { getState, setState };
+  // список фукнций которые синхранизируют локальное состояние компонента с состянием модуля
+  const listeners = new Set();
+
+  // реализация логики подписки / отписки
+  const subscribe = (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  return { getState, setState, subscribe };
 };
 
 const store = createStore({ count: 0 });
 
 const Counter = () => {
-  // определяем локальное состояния помещая в него состояние модуля
   const [state, setState] = useState(store.getState());
 
-  //  Как и в первом примере происходит рендер только текущего компонента.
-  //  Каждый компонент отслеживает только свое локальное состояние, измнение которого вызывает рендер
-  //  в этот момент в других компонентах состояние НЕ обновляется через setState
-  //  следовательо React не знает об его изменении и рендер не вызвается
+  // осуществляем подписку при инициализации компонента (добавляем в listeners)
+  useEffect(() => {
+    // при вызове callback синхронизируем локальное состояние текущего компонента с состоянием модуля
+    const callback = () => {
+      setState(store.getState());
+    };
+    // передаем, через subscribe, в listeners фукнцию callback, которая изменяет локальное состояние
+    const unsubscribe = store.subscribe(callback);
+    return unsubscribe;
+  }, []);
+
   const inc = () => {
+    // обновляем состояние модуля
     const nextState = { count: store.getState().count + 1 };
+    // выполняем обновление setState для локального состояния текущего компонента и всех других инициализированных компонентов
+    // под капотом в store.setState вызывается setState для локального состояния (помещали его в  listeners при вызове useEffect)
     store.setState(nextState);
-    setState(nextState);
   };
 
   return (
