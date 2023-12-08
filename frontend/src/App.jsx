@@ -1,26 +1,31 @@
-// Share Module State Between Components in React Similar to Zustand 2
-import { useEffect, useState } from "react";
+// Share Module State Between Components in React Similar to Zustand 3
+import { useState } from "react";
 
-let moduleState = { count: 0 };
-const setStates = new Set();
+// помещаем модульное состояние в замыкание
+const createStore = (initialState) => {
+  let state = initialState;
+  const getState = () => state;
+  const setState = (nextState) => {
+    state = nextState;
+  };
+
+  return { getState, setState };
+};
+
+const store = createStore({ count: 0 });
 
 const Counter = () => {
-  const [state, setState] = useState(moduleState);
+  // определяем локальное состояния помещая в него состояние модуля
+  const [state, setState] = useState(store.getState());
 
-  // При инициализации компонента добавляем его в множество setState — для обновления локального состояния
-  // А при размонтировании удалем из него setState
-  useEffect(() => {
-    setStates.add(setState);
-    return () => setStates.delete(setState);
-  }, []);
-
-  // При изменеии состояния каждого компонента изменяем состояние модуля (moduleState)
-  // и приводим к этому значению локальное состояние всех инициализированных компонентов
-  // c помощью прохода в цикле по множеству setStates и применяя  хранящиеся в нём функции setState из компонентов
-  // такми образом React узнает об их изменении и обнолвляет локальное состояние комопонентов, тем самым вызвая у них рендер
+  //  Как и в первом примере происходит рендер только текущего компонента.
+  //  Каждый компонент отслеживает только свое локальное состояние, измнение которого вызывает рендер
+  //  в этот момент в других компонентах состояние НЕ обновляется через setState
+  //  следовательо React не знает об его изменении и рендер не вызвается
   const inc = () => {
-    moduleState = { count: moduleState.count + 1 };
-    setStates.forEach((fn) => fn(moduleState));
+    const nextState = { count: store.getState().count + 1 };
+    store.setState(nextState);
+    setState(nextState);
   };
 
   return (
