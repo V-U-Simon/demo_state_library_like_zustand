@@ -1,11 +1,15 @@
-// Extract Module Logic (like Zustand) into a Custom React Hook 1
+// Extract Module Logic (like Zustand) into a Custom React Hook 2
 import { useEffect, useState } from "react";
 
 const createStore = (initialState) => {
   let state = initialState;
   const getState = () => state;
+
+  // добавляем возможность обновления "сложных объектов" состояния
   const setState = (nextState) => {
-    state = nextState;
+    // если функция, то передаем в качестве аргумента текущее состояние модуля для обновления этого состояния там, в этой функции — nextState(state)
+    // если объект, то заменяем на новое состояние — nextState
+    state = typeof nextState === "function" ? nextState(state) : nextState;
     listeners.forEach((listener) => {
       listener();
     });
@@ -20,12 +24,9 @@ const createStore = (initialState) => {
 
 const store = createStore({ count: 0 });
 
-// добавляем хук useStore
 const useStore = (store) => {
-  // выносим локальное состояние модуля в хук
   const [state, setState] = useState(store.getState());
 
-  // выносим управление подпиской / отпиской — логику синхронизации локального состояния компонента с состоянием модуля
   useEffect(() => {
     const callback = () => {
       setState(store.getState());
@@ -36,7 +37,7 @@ const useStore = (store) => {
     return unsubscribe;
   }, [store]);
 
-  // Хук возвращает:
+  // Как и раньше хук возвращает:
   // - локальнео состояние и
   // - ФУНКЦИЮ, которая обновляет состояние модуля и локальное состояние всех инициализированных компонентов
   return [state, store.setState];
@@ -46,10 +47,11 @@ const Counter = () => {
   const [state, setState] = useStore(store);
 
   const inc = () => {
-    const nextState = { count: state.count + 1 };
-    setState(nextState);
+    setState((currentStorageState) => ({
+      ...currentStorageState,
+      count: currentStorageState.count + 1,
+    }));
   };
-
   return (
     <div>
       {state.count} <button onClick={inc}>+1</button>
