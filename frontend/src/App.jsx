@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const createStore = (initialState) => {
   let state = initialState;
@@ -19,28 +19,38 @@ const createStore = (initialState) => {
 
 const store = createStore({ count1: 0, count2: 0 });
 
-const useStore = (store) => {
-  const [state, setState] = useState(store.getState());
+// Identity — функция по умолчанию для селектора, возвращает полеченное ей состояние модуля
+const identity = (storeState) => storeState;
+
+// hook useStore с селектором значения из состояния модуля
+// пример селектора, принимает глобальное состояние модуля и возвращает только часть от него: `(state) => state.count2`
+const useStore = (store, selector = identity) => {
+  // Выборка части состояния
+  const [state, setState] = useState(selector(store.getState()));
+
+  // Инициализация и обновление локального состояния компонента (синхронизация с состоянием модуля)
   useEffect(() => {
     const callback = () => {
-      setState(store.getState());
+      setState(selector(store.getState()));
     };
-    const unsubscribe = store.subscribe(callback);
     callback();
+
+    const unsubscribe = store.subscribe(callback);
     return unsubscribe;
-  }, [store]);
+  }, [store, selector]);
+
   return [state, store.setState];
 };
 
-// Используем отдельные компоненты для различных данных состояния модели:
-// - count1
-// - count2
-// При этом в случае изменения любого из значений состояния модели
-// вызывается рендедер для всех компонентов которые используют хотя бы одно из его значений
+// Counter1 component with selector for count1
 const Counter1 = () => {
   console.log("render Counter1");
 
-  const [state, setState] = useStore(store);
+  const [count1, setState] = useStore(
+    store,
+    useCallback((state) => state.count1, []) // используем селектор, который возвращает нам первый счетчик
+  ); // useCallback мемоизирует функцию для предотсвращения повторных рендеров
+
   const inc1 = () => {
     setState((prev) => ({
       ...prev,
@@ -49,15 +59,20 @@ const Counter1 = () => {
   };
   return (
     <div>
-      {state.count1} <button onClick={inc1}>+1</button>
+      {count1} <button onClick={inc1}>+1</button>
     </div>
   );
 };
 
+// Counter2 component with selector for count2
 const Counter2 = () => {
   console.log("render Counter2");
 
-  const [state, setState] = useStore(store);
+  const [count2, setState] = useStore(
+    store,
+    useCallback((state) => state.count2, []) // используем селектор, который возвращает нам второй счетчик
+  ); // useCallback мемоизирует функцию для предотсвращения повторных рендеров
+
   const inc2 = () => {
     setState((prev) => ({
       ...prev,
@@ -66,11 +81,12 @@ const Counter2 = () => {
   };
   return (
     <div>
-      {state.count2} <button onClick={inc2}>+1</button>
+      {count2} <button onClick={inc2}>+1</button>
     </div>
   );
 };
 
+// App component to show Counter1 and Counter2
 const App = () => (
   <>
     <h1>Counter1</h1>
