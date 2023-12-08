@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-const createStore = (initialState) => {
-  let state = initialState;
+// createState — функция инициализации состояния модуля, возвращает объект состояния
+const createStore = (createState) => {
   const getState = () => state;
   const setState = (nextState) => {
     state = typeof nextState === "function" ? nextState(state) : nextState;
@@ -9,6 +9,9 @@ const createStore = (initialState) => {
       listener();
     });
   };
+  // Инициализация состояния через функцию `createState`
+  // передает в него setState, чтобы можно было внутри этой функции объявить / изменить состояние модуля
+  let state = createState(setState);
   const listeners = new Set();
   const subscribe = (listener) => {
     listeners.add(listener);
@@ -17,78 +20,74 @@ const createStore = (initialState) => {
   return { getState, setState, subscribe };
 };
 
-const store = createStore({ count1: 0, count2: 0 });
+// так же в createState перенесли (actons) — функции-фабрики возвращающие новые объекты для обновления состояние модуля (inc1, inc2)
+const store = createStore((setState) => ({
+  count1: 0,
+  count2: 0,
+  // currentState — текущее состояние (state), которое передается при вызове state.setState(state), где state и есть currentState.
+  inc1: () => {
+    setState((currentState) => ({
+      ...currentState,
+      count1: currentState.count1 + 1,
+    }));
+  },
+  inc2: () => {
+    setState((currentState) => ({
+      ...currentState,
+      count2: currentState.count2 + 1,
+    }));
+  },
+}));
 
-// Identity — функция по умолчанию для селектора, возвращает полеченное ей состояние модуля
-const identity = (storeState) => storeState;
+const identity = (x) => x;
 
-// hook useStore с селектором значения из состояния модуля
-// пример селектора, принимает глобальное состояние модуля и возвращает только часть от него: `(state) => state.count2`
 const useStore = (store, selector = identity) => {
-  // Выборка части состояния
-  const [state, setState] = useState(selector(store.getState()));
-
-  // Инициализация и обновление локального состояния компонента (синхронизация с состоянием модуля)
+  const [state, setState] = useState(() => selector(store.getState()));
   useEffect(() => {
     const callback = () => {
-      setState(selector(store.getState()));
+      setState(() => selector(store.getState()));
     };
-    callback();
-
     const unsubscribe = store.subscribe(callback);
+    callback();
     return unsubscribe;
   }, [store, selector]);
-
-  return [state, store.setState];
+  return state;
 };
 
-// Counter1 component with selector for count1
 const Counter1 = () => {
-  console.log("render Counter1");
-
-  const [count1, setState] = useStore(
+  const count1 = useStore(
     store,
-    useCallback((state) => state.count1, []) // используем селектор, который возвращает нам первый счетчик
-  ); // useCallback мемоизирует функцию для предотсвращения повторных рендеров
-
-  const inc1 = () => {
-    setState((prev) => ({
-      ...prev,
-      count1: prev.count1 + 1,
-    }));
-  };
+    useCallback((state) => state.count1, [])
+  );
+  // извлекли функцию обновления состояния, теперь импортируем ее из состояния модуля
+  const inc1 = useStore(
+    store,
+    useCallback((state) => state.inc1, [])
+  );
   return (
     <div>
       {count1} <button onClick={inc1}>+1</button>
-      {Math.random()}
     </div>
   );
 };
 
-// Counter2 component with selector for count2
 const Counter2 = () => {
-  console.log("render Counter2");
-
-  const [count2, setState] = useStore(
+  const count2 = useStore(
     store,
-    useCallback((state) => state.count2, []) // используем селектор, который возвращает нам второй счетчик
-  ); // useCallback мемоизирует функцию для предотсвращения повторных рендеров
-
-  const inc2 = () => {
-    setState((prev) => ({
-      ...prev,
-      count2: prev.count2 + 1,
-    }));
-  };
+    useCallback((state) => state.count2, [])
+  );
+  // извлекли функцию обновления состояния, теперь импортируем ее из состояния модуля
+  const inc2 = useStore(
+    store,
+    useCallback((state) => state.inc2, [])
+  );
   return (
     <div>
       {count2} <button onClick={inc2}>+1</button>
-      {Math.random()}
     </div>
   );
 };
 
-// App component to show Counter1 and Counter2
 const App = () => (
   <>
     <h1>Counter1</h1>
