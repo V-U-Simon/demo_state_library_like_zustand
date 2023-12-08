@@ -1,24 +1,16 @@
-// Share Module State Between Components in React Similar to Zustand 4
+// Extract Module Logic (like Zustand) into a Custom React Hook 1
 import { useEffect, useState } from "react";
 
 const createStore = (initialState) => {
   let state = initialState;
   const getState = () => state;
   const setState = (nextState) => {
-    // обновляем текущее состояние модуля
     state = nextState;
-    // обновляем локальные состояния всех инициализированных компонентов
-    // поскольку listeners содержит список callback'ов
-    // в качестве listener вызываем callback выполняющий setState(store.getState()) локальное состояние приводится к состоянию модуля
     listeners.forEach((listener) => {
       listener();
     });
   };
-
-  // список фукнций которые синхранизируют локальное состояние компонента с состянием модуля
   const listeners = new Set();
-
-  // реализация логики подписки / отписки
   const subscribe = (listener) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -28,26 +20,34 @@ const createStore = (initialState) => {
 
 const store = createStore({ count: 0 });
 
-const Counter = () => {
+// добавляем хук useStore
+const useStore = (store) => {
+  // выносим локальное состояние модуля в хук
   const [state, setState] = useState(store.getState());
 
-  // осуществляем подписку при инициализации компонента (добавляем в listeners)
+  // выносим управление подпиской / отпиской — логику синхронизации локального состояния компонента с состоянием модуля
   useEffect(() => {
-    // при вызове callback синхронизируем локальное состояние текущего компонента с состоянием модуля
     const callback = () => {
       setState(store.getState());
     };
-    // передаем, через subscribe, в listeners фукнцию callback, которая изменяет локальное состояние
+    callback();
+
     const unsubscribe = store.subscribe(callback);
     return unsubscribe;
-  }, []);
+  }, [store]);
+
+  // Хук возвращает:
+  // - локальнео состояние и
+  // - ФУНКЦИЮ, которая обновляет состояние модуля и локальное состояние всех инициализированных компонентов
+  return [state, store.setState];
+};
+
+const Counter = () => {
+  const [state, setState] = useStore(store);
 
   const inc = () => {
-    // обновляем состояние модуля
-    const nextState = { count: store.getState().count + 1 };
-    // выполняем обновление setState для локального состояния текущего компонента и всех других инициализированных компонентов
-    // под капотом в store.setState вызывается setState для локального состояния (помещали его в  listeners при вызове useEffect)
-    store.setState(nextState);
+    const nextState = { count: state.count + 1 };
+    setState(nextState);
   };
 
   return (
