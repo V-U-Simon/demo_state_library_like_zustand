@@ -60,6 +60,7 @@ const Counter1 = () => {
   return (
     <div>
       {count1} <button onClick={inc1}>+1</button>
+      {Math.random()}
     </div>
   );
 };
@@ -82,6 +83,7 @@ const Counter2 = () => {
   return (
     <div>
       {count2} <button onClick={inc2}>+1</button>
+      {Math.random()}
     </div>
   );
 };
