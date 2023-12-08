@@ -1,14 +1,9 @@
-// Extract Module Logic (like Zustand) into a Custom React Hook 2
 import { useEffect, useState } from "react";
 
 const createStore = (initialState) => {
   let state = initialState;
   const getState = () => state;
-
-  // добавляем возможность обновления "сложных объектов" состояния
   const setState = (nextState) => {
-    // если функция, то передаем в качестве аргумента текущее состояние модуля для обновления этого состояния там, в этой функции — nextState(state)
-    // если объект, то заменяем на новое состояние — nextState
     state = typeof nextState === "function" ? nextState(state) : nextState;
     listeners.forEach((listener) => {
       listener();
@@ -22,39 +17,56 @@ const createStore = (initialState) => {
   return { getState, setState, subscribe };
 };
 
-const store = createStore({ count: 0 });
+const store = createStore({ count1: 0, count2: 0 });
 
 const useStore = (store) => {
   const [state, setState] = useState(store.getState());
-
   useEffect(() => {
     const callback = () => {
       setState(store.getState());
     };
-    callback();
-
     const unsubscribe = store.subscribe(callback);
+    callback();
     return unsubscribe;
   }, [store]);
-
-  // Как и раньше хук возвращает:
-  // - локальнео состояние и
-  // - ФУНКЦИЮ, которая обновляет состояние модуля и локальное состояние всех инициализированных компонентов
   return [state, store.setState];
 };
 
-const Counter = () => {
-  const [state, setState] = useStore(store);
+// Используем отдельные компоненты для различных данных состояния модели:
+// - count1
+// - count2
+// При этом в случае изменения любого из значений состояния модели
+// вызывается рендедер для всех компонентов которые используют хотя бы одно из его значений
+const Counter1 = () => {
+  console.log("render Counter1");
 
-  const inc = () => {
-    setState((currentStorageState) => ({
-      ...currentStorageState,
-      count: currentStorageState.count + 1,
+  const [state, setState] = useStore(store);
+  const inc1 = () => {
+    setState((prev) => ({
+      ...prev,
+      count1: prev.count1 + 1,
     }));
   };
   return (
     <div>
-      {state.count} <button onClick={inc}>+1</button>
+      {state.count1} <button onClick={inc1}>+1</button>
+    </div>
+  );
+};
+
+const Counter2 = () => {
+  console.log("render Counter2");
+
+  const [state, setState] = useStore(store);
+  const inc2 = () => {
+    setState((prev) => ({
+      ...prev,
+      count2: prev.count2 + 1,
+    }));
+  };
+  return (
+    <div>
+      {state.count2} <button onClick={inc2}>+1</button>
     </div>
   );
 };
@@ -62,9 +74,11 @@ const Counter = () => {
 const App = () => (
   <>
     <h1>Counter1</h1>
-    <Counter />
+    <Counter1 />
+    <Counter1 />
     <h1>Counter2</h1>
-    <Counter />
+    <Counter2 />
+    <Counter2 />
   </>
 );
 
